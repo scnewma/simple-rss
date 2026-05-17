@@ -1,0 +1,9 @@
+{
+  "pollCron": "0 0 0 * * *",
+  "displayDays": 90,
+  "listenAddr": ":8080",
+  "databasePath": "dev.db",
+  "feeds": [
+    "https://matklad.github.io/feed.xml"
+  ]
+}
