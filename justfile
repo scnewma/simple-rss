@@ -3,8 +3,8 @@ vet:
 	go vet ./...
 	go test ./...
 
-run:
-	go run . -config dev-config.json
+run *args:
+	go run . -config dev-config.json {{args}}
 
 docker-build:
 	docker build -t simple-rss:local .

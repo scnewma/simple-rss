@@ -23,6 +23,7 @@ func run(ctx context.Context, argv []string) error {
 	fs := flag.NewFlagSet("simple-rss", flag.ContinueOnError)
 	configPath := fs.String("config", "config.json", "path to config file")
 	format := fs.String("format", "html", "output format: html or json")
+	maxAge := fs.Duration("max-age", 0, "maximum article age to include, e.g. 24h or 168h")
 	if err := fs.Parse(argv); err != nil {
 		return err
 	}
@@ -44,6 +45,10 @@ func run(ctx context.Context, argv []string) error {
 
 	if len(feeds) == 0 {
 		return fetchErr
+	}
+
+	if *maxAge > 0 {
+		filterArticlesByMaxAge(feeds, *maxAge)
 	}
 
 	switch *format {

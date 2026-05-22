@@ -67,16 +67,44 @@ func TestAppJSON(t *testing.T) {
 		return run(context.Background(), []string{"-config", configPath, "-format", "json"})
 	})
 
-	var feeds []Feed
-	if err := json.Unmarshal(output, &feeds); err != nil {
-		t.Fatal(err)
-	}
+	feeds := decodeFeeds(t, output)
 	if len(feeds) == 0 {
 		t.Fatal("expected at least one feed")
 	}
 	if len(feeds[0].Articles) == 0 {
 		t.Fatal("expected at least one article")
 	}
+}
+
+func TestAppMaxAge(t *testing.T) {
+	configPath := testConfigPath(t)
+	maxAge := 7 * 24 * time.Hour
+
+	output := captureStdout(t, func() error {
+		return run(context.Background(), []string{"-config", configPath, "-format", "json", "-max-age", maxAge.String()})
+	})
+
+	feeds := decodeFeeds(t, output)
+	if len(feeds) == 0 || len(feeds[0].Articles) == 0 {
+		t.Fatal("expected filtered output to include articles")
+	}
+	for _, feed := range feeds {
+		for _, article := range feed.Articles {
+			if age := clock.Now().Sub(article.PublishedAt); age > maxAge {
+				t.Fatalf("article %q age = %s, want <= %s", article.Title, age, maxAge)
+			}
+		}
+	}
+}
+
+func decodeFeeds(t *testing.T, output []byte) []Feed {
+	t.Helper()
+
+	var feeds []Feed
+	if err := json.Unmarshal(output, &feeds); err != nil {
+		t.Fatal(err)
+	}
+	return feeds
 }
 
 func testConfigPath(t *testing.T) string {
