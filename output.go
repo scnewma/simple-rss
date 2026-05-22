@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"slices"
 	"time"
 )
 
@@ -141,6 +142,12 @@ func groupArticles(feeds []*Feed, configs []GroupConfig) []group {
 
 	if !hasArticles {
 		return nil
+	}
+
+	for i := range groups {
+		slices.SortFunc(groups[i].Articles, func(a, b outputArticle) int {
+			return b.PublishedAt.Compare(a.PublishedAt)
+		})
 	}
 
 	return groups

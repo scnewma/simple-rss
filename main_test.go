@@ -75,6 +75,7 @@ func TestAppJSON(t *testing.T) {
 		if len(group.Articles) == 0 {
 			t.Fatalf("expected %q group to include articles", group.Title)
 		}
+		assertArticlesNewestFirst(t, group.Articles)
 	}
 }
 
@@ -130,6 +131,16 @@ func decodeJSONOutput(t *testing.T, output []byte) jsonOutput {
 		t.Fatal(err)
 	}
 	return page
+}
+
+func assertArticlesNewestFirst(t *testing.T, articles []outputArticle) {
+	t.Helper()
+
+	for i := 1; i < len(articles); i++ {
+		if articles[i].PublishedAt.After(articles[i-1].PublishedAt) {
+			t.Fatalf("articles not newest first: %q published at %s after previous article %q published at %s", articles[i].Title, articles[i].PublishedAt, articles[i-1].Title, articles[i-1].PublishedAt)
+		}
+	}
 }
 
 func testConfigPath(t *testing.T, groups ...GroupConfig) string {
