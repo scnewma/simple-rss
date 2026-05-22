@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -45,6 +46,12 @@ const pageHTML = `<!doctype html>
   {{end}}
 </body>
 </html>`
+
+func WriteJSON(w io.Writer, feeds []*Feed) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(feeds)
+}
 
 func WriteHTML(w io.Writer, feeds []*Feed) error {
 	t, err := template.New("index").Funcs(template.FuncMap{

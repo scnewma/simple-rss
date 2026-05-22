@@ -11,6 +11,7 @@ simple-rss -config config.json > index.html
 Flags:
 
 - `-config`: path to config file. Defaults to `config.json`.
+- `-format`: output format, `html` or `json`. Defaults to `html`.
 
 ## Configuration
 

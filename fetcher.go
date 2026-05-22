@@ -14,15 +14,15 @@ import (
 const feedTimeout = 20 * time.Second
 
 type Feed struct {
-	URL      string
-	Title    string
-	Articles []Article
+	URL      string    `json:"url"`
+	Title    string    `json:"title"`
+	Articles []Article `json:"articles"`
 }
 
 type Article struct {
-	Title       string
-	Link        string
-	PublishedAt time.Time
+	Title       string    `json:"title"`
+	Link        string    `json:"link"`
+	PublishedAt time.Time `json:"publishedAt"`
 }
 
 type FeedError struct {

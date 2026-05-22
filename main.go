@@ -22,6 +22,7 @@ func main() {
 func run(ctx context.Context, argv []string) error {
 	fs := flag.NewFlagSet("simple-rss", flag.ContinueOnError)
 	configPath := fs.String("config", "config.json", "path to config file")
+	format := fs.String("format", "html", "output format: html or json")
 	if err := fs.Parse(argv); err != nil {
 		return err
 	}
@@ -45,10 +46,17 @@ func run(ctx context.Context, argv []string) error {
 		return fetchErr
 	}
 
-	if err := WriteHTML(os.Stdout, feeds); err != nil {
-		return fmt.Errorf("writing html: %w", err)
+	switch *format {
+	case "html":
+		if err := WriteHTML(os.Stdout, feeds); err != nil {
+			return fmt.Errorf("writing html: %w", err)
+		}
+	case "json":
+		if err := WriteJSON(os.Stdout, feeds); err != nil {
+			return fmt.Errorf("writing json: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported format %q", *format)
 	}
-
-	logger.Info("wrote feeds")
 	return nil
 }

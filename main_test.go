@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -24,60 +25,13 @@ func (c staticClock) Now() time.Time {
 }
 
 func TestApp(t *testing.T) {
-	originalClock := clock
-	clock = staticClock{now: time.Date(2026, 5, 13, 12, 0, 0, 0, time.UTC)}
-	t.Cleanup(func() { clock = originalClock })
+	configPath := testConfigPath(t)
 
-	feedPaths, err := filepath.Glob(filepath.Join("testdata", "*"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	html := captureStdout(t, func() error {
+		return run(context.Background(), []string{"-config", configPath})
+	})
 
-	server := httptest.NewServer(http.FileServer(http.Dir("testdata")))
-	t.Cleanup(server.Close)
-
-	feedURLs := make([]string, 0, len(feedPaths))
-	for _, feedPath := range feedPaths {
-		feedURLs = append(feedURLs, server.URL+"/"+filepath.Base(feedPath))
-	}
-
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.json")
-
-	cfg := Config{
-		Feeds: feedURLs,
-	}
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(configPath, data, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	stdout, err := os.CreateTemp(tmpDir, "stdout-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stdout.Close()
-
-	originalStdout := os.Stdout
-	os.Stdout = stdout
-	t.Cleanup(func() { os.Stdout = originalStdout })
-
-	if err := run(context.Background(), []string{"-config", configPath}); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := stdout.Seek(0, 0); err != nil {
-		t.Fatal(err)
-	}
-	html, err := io.ReadAll(stdout)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(html)))
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(html))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,4 +58,83 @@ func TestApp(t *testing.T) {
 			t.Fatalf("expected group %d (%q) to be non-empty", i, group)
 		}
 	})
+}
+
+func TestAppJSON(t *testing.T) {
+	configPath := testConfigPath(t)
+
+	output := captureStdout(t, func() error {
+		return run(context.Background(), []string{"-config", configPath, "-format", "json"})
+	})
+
+	var feeds []Feed
+	if err := json.Unmarshal(output, &feeds); err != nil {
+		t.Fatal(err)
+	}
+	if len(feeds) == 0 {
+		t.Fatal("expected at least one feed")
+	}
+	if len(feeds[0].Articles) == 0 {
+		t.Fatal("expected at least one article")
+	}
+}
+
+func testConfigPath(t *testing.T) string {
+	t.Helper()
+
+	originalClock := clock
+	clock = staticClock{now: time.Date(2026, 5, 13, 12, 0, 0, 0, time.UTC)}
+	t.Cleanup(func() { clock = originalClock })
+
+	feedPaths, err := filepath.Glob(filepath.Join("testdata", "*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(http.FileServer(http.Dir("testdata")))
+	t.Cleanup(server.Close)
+
+	feedURLs := make([]string, 0, len(feedPaths))
+	for _, feedPath := range feedPaths {
+		feedURLs = append(feedURLs, server.URL+"/"+filepath.Base(feedPath))
+	}
+
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	cfg := Config{Feeds: feedURLs}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	return configPath
+}
+
+func captureStdout(t *testing.T, fn func() error) []byte {
+	t.Helper()
+
+	stdout, err := os.CreateTemp(t.TempDir(), "stdout-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stdout.Close()
+
+	originalStdout := os.Stdout
+	os.Stdout = stdout
+	t.Cleanup(func() { os.Stdout = originalStdout })
+
+	if err := fn(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := stdout.Seek(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	output, err := io.ReadAll(stdout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return output
 }
