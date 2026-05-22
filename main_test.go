@@ -67,12 +67,14 @@ func TestAppJSON(t *testing.T) {
 		return run(context.Background(), []string{"-config", configPath, "-format", "json"})
 	})
 
-	feeds := decodeFeeds(t, output)
-	if len(feeds) == 0 {
-		t.Fatal("expected at least one feed")
+	page := decodeJSONOutput(t, output)
+	if len(page.Groups) == 0 {
+		t.Fatal("expected at least one group")
 	}
-	if len(feeds[0].Articles) == 0 {
-		t.Fatal("expected at least one article")
+	for _, group := range page.Groups {
+		if len(group.Articles) == 0 {
+			t.Fatalf("expected %q group to include articles", group.Title)
+		}
 	}
 }
 
@@ -84,12 +86,12 @@ func TestAppMaxAge(t *testing.T) {
 		return run(context.Background(), []string{"-config", configPath, "-format", "json", "-max-age", maxAge.String()})
 	})
 
-	feeds := decodeFeeds(t, output)
-	if len(feeds) == 0 || len(feeds[0].Articles) == 0 {
+	page := decodeJSONOutput(t, output)
+	if len(page.Groups) == 0 || len(page.Groups[0].Articles) == 0 {
 		t.Fatal("expected filtered output to include articles")
 	}
-	for _, feed := range feeds {
-		for _, article := range feed.Articles {
+	for _, group := range page.Groups {
+		for _, article := range group.Articles {
 			if age := clock.Now().Sub(article.PublishedAt); age > maxAge {
 				t.Fatalf("article %q age = %s, want <= %s", article.Title, age, maxAge)
 			}
@@ -97,14 +99,18 @@ func TestAppMaxAge(t *testing.T) {
 	}
 }
 
-func decodeFeeds(t *testing.T, output []byte) []Feed {
+type jsonOutput struct {
+	Groups []group `json:"groups"`
+}
+
+func decodeJSONOutput(t *testing.T, output []byte) jsonOutput {
 	t.Helper()
 
-	var feeds []Feed
-	if err := json.Unmarshal(output, &feeds); err != nil {
+	var page jsonOutput
+	if err := json.Unmarshal(output, &page); err != nil {
 		t.Fatal(err)
 	}
-	return feeds
+	return page
 }
 
 func testConfigPath(t *testing.T) string {

@@ -35,7 +35,7 @@ const pageHTML = `<!doctype html>
           {{range .Articles}}
             <li>
               <a href="{{.Link}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a>
-              <div class="meta">{{.FeedTitle}} · {{formatDate .PublishedAt}}</div>
+              <div class="meta">{{.Feed.Title}} · {{formatDate .PublishedAt}}</div>
             </li>
           {{end}}
         </ul>
@@ -48,9 +48,15 @@ const pageHTML = `<!doctype html>
 </html>`
 
 func WriteJSON(w io.Writer, feeds []*Feed) error {
+	data := struct {
+		Groups []group `json:"groups"`
+	}{
+		Groups: groupArticles(feeds),
+	}
+
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(feeds)
+	return encoder.Encode(data)
 }
 
 func WriteHTML(w io.Writer, feeds []*Feed) error {
@@ -78,17 +84,22 @@ func WriteHTML(w io.Writer, feeds []*Feed) error {
 }
 
 type group struct {
-	Title    string
-	Articles []outputArticle
+	Title    string          `json:"title"`
+	Articles []outputArticle `json:"articles"`
 
-	shouldAdd func(publishedAt time.Time) bool
+	shouldAdd func(publishedAt time.Time) bool `json:"-"`
 }
 
 type outputArticle struct {
-	Link        string
-	Title       string
-	PublishedAt time.Time
-	FeedTitle   string
+	Link        string     `json:"link"`
+	Title       string     `json:"title"`
+	PublishedAt time.Time  `json:"publishedAt"`
+	Feed        outputFeed `json:"feed"`
+}
+
+type outputFeed struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
 }
 
 func groupArticles(feeds []*Feed) []group {
@@ -136,7 +147,10 @@ func groupArticles(feeds []*Feed) []group {
 					Link:        article.Link,
 					Title:       article.Title,
 					PublishedAt: article.PublishedAt,
-					FeedTitle:   feed.Title,
+					Feed: outputFeed{
+						Title: feed.Title,
+						URL:   feed.URL,
+					},
 				})
 				break
 			}
