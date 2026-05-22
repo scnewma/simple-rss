@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"os"
+	"io"
 	"time"
 )
 
@@ -46,7 +46,7 @@ const pageHTML = `<!doctype html>
 </body>
 </html>`
 
-func WriteHTML(path string, feeds []*Feed) error {
+func WriteHTML(w io.Writer, feeds []*Feed) error {
 	t, err := template.New("index").Funcs(template.FuncMap{
 		"formatDate": func(t time.Time) string {
 			return t.Local().Format("Jan 2, 2006")
@@ -66,7 +66,8 @@ func WriteHTML(path string, feeds []*Feed) error {
 	if err := t.Execute(buf, pageData); err != nil {
 		return fmt.Errorf("executing template: %w", err)
 	}
-	return os.WriteFile(path, buf.Bytes(), 0o666)
+	_, err = w.Write(buf.Bytes())
+	return err
 }
 
 type group struct {

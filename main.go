@@ -22,7 +22,6 @@ func main() {
 func run(ctx context.Context, argv []string) error {
 	fs := flag.NewFlagSet("simple-rss", flag.ContinueOnError)
 	configPath := fs.String("config", "config.json", "path to config file")
-	outputPath := fs.String("output", "index.html", "path to output HTML file")
 	if err := fs.Parse(argv); err != nil {
 		return err
 	}
@@ -32,7 +31,7 @@ func run(ctx context.Context, argv []string) error {
 		return err
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	ctx = ContextWithLogger(ctx, logger)
 
 	feeds, fetchErr := new(Fetcher).FetchAll(ctx, cfg.Feeds)
@@ -46,10 +45,10 @@ func run(ctx context.Context, argv []string) error {
 		return fetchErr
 	}
 
-	if err := WriteHTML(*outputPath, feeds); err != nil {
+	if err := WriteHTML(os.Stdout, feeds); err != nil {
 		return fmt.Errorf("writing html: %w", err)
 	}
 
-	logger.Info("wrote feeds", "path", *outputPath)
+	logger.Info("wrote feeds")
 	return nil
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -41,7 +42,6 @@ func TestApp(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "index.html")
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	cfg := Config{
@@ -55,17 +55,29 @@ func TestApp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := run(context.Background(), []string{"-config", configPath, "-output", outputPath}); err != nil {
-		t.Fatal(err)
-	}
-
-	file, err := os.Open(outputPath)
+	stdout, err := os.CreateTemp(tmpDir, "stdout-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer stdout.Close()
 
-	doc, err := goquery.NewDocumentFromReader(file)
+	originalStdout := os.Stdout
+	os.Stdout = stdout
+	t.Cleanup(func() { os.Stdout = originalStdout })
+
+	if err := run(context.Background(), []string{"-config", configPath}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := stdout.Seek(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	html, err := io.ReadAll(stdout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(html)))
 	if err != nil {
 		t.Fatal(err)
 	}

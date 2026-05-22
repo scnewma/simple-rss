@@ -5,13 +5,12 @@ A simple RSS tool that fetches configured feeds and writes a static HTML page of
 ## Usage
 
 ```sh
-simple-rss -config config.json -output index.html
+simple-rss -config config.json > index.html
 ```
 
 Flags:
 
 - `-config`: path to config file. Defaults to `config.json`.
-- `-output`: path to output HTML file. Defaults to `index.html`.
 
 ## Configuration
 
