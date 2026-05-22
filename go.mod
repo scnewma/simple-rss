@@ -1,4 +1,4 @@
-module simple-rss
+module github.com/scnewma/simple-rss
 
 go 1.25.0
 
