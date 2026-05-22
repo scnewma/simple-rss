@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -67,7 +66,7 @@ func WriteHTML(path string, feeds []*Feed) error {
 	if err := t.Execute(buf, pageData); err != nil {
 		return fmt.Errorf("executing template: %w", err)
 	}
-	return writeAtomic(path, buf.Bytes())
+	return os.WriteFile(path, buf.Bytes(), 0o666)
 }
 
 type group struct {
@@ -141,41 +140,4 @@ func groupArticles(feeds []*Feed) []group {
 	}
 
 	return groups
-}
-
-func writeAtomic(path string, data []byte) (err error) {
-	dir := filepath.Dir(path)
-
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-
-	defer func() {
-		if err != nil {
-			_ = os.Remove(tmpName)
-		}
-	}()
-
-	if _, err = tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err = tmp.Chmod(0o666); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err = tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err = tmp.Close(); err != nil {
-		return err
-	}
-
-	if err = os.Rename(tmpName, path); err != nil {
-		return err
-	}
-	return nil
 }
