@@ -3,14 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -34,9 +32,7 @@ func TestApp(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	cfg := Config{
-		OutputPath: outputPath,
-		PollCron:   "0 0 1 1 *",
-		Feeds:      feedURLs,
+		Feeds: feedURLs,
 	}
 	data, err := json.Marshal(cfg)
 	if err != nil {
@@ -46,22 +42,8 @@ func TestApp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	runErr := make(chan error, 1)
-	go func() {
-		runErr <- run(ctx, []string{"-config", configPath})
-	}()
-
-	waitForFile(t, outputPath)
-	cancel()
-
-	select {
-	case err := <-runErr:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("run did not stop after context cancellation")
+	if err := run(context.Background(), []string{"-config", configPath, "-output", outputPath}); err != nil {
+		t.Fatal(err)
 	}
 
 	file, err := os.Open(outputPath)
@@ -89,28 +71,5 @@ func TestApp(t *testing.T) {
 	}
 	if metas := doc.Find("section li .meta").Length(); metas == 0 {
 		t.Fatal("expected at least one article metadata element")
-	}
-}
-
-func waitForFile(t *testing.T, path string) {
-	t.Helper()
-
-	deadline := time.After(1 * time.Second)
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-deadline:
-			t.Fatalf("timed out waiting for %s", path)
-		case <-ticker.C:
-			info, err := os.Stat(path)
-			if err == nil && info.Size() > 0 {
-				return
-			}
-			if err != nil && !os.IsNotExist(err) {
-				t.Fatal(fmt.Errorf("stat %s: %w", path, err))
-			}
-		}
 	}
 }

@@ -1,28 +1,31 @@
 # Simple RSS
 
-A simple RSS server that just displays a page of links. Configure feeds in JSON and they will update daily.
+A simple RSS tool that fetches configured feeds and writes a static HTML page of links.
+
+## Usage
+
+```sh
+simple-rss -config config.json -output index.html
+```
+
+Flags:
+
+- `-config`: path to config file. Defaults to `config.json`.
+- `-output`: path to output HTML file. Defaults to `index.html`.
 
 ## Configuration
 
-Reads `config.json` by default. Use `-config path/to/config.json` to choose a different file. If the file does not exist, built-in defaults are used.
+The config file only contains the feed list:
 
 ```json
 {
-  "pollCron": "0 0 0 * * *",
-  "displayDays": 90,
-  "listenAddr": ":8080",
-  "databasePath": "simple-rss.db",
-  "feeds": []
+  "feeds": [
+    "https://example.com/feed.xml"
+  ]
 }
 ```
 
-Options:
-
-- `pollCron`: six-field cron schedule, including seconds. Defaults to daily at midnight.
-- `displayDays`: number of days of articles to show. Defaults to `90`.
-- `listenAddr`: HTTP listen address. Defaults to `:8080`.
-- `databasePath`: SQLite database path. Defaults to `simple-rss.db`.
-- `feeds`: RSS/Atom feed URLs. Must be HTTP or HTTPS.
+Feeds must be HTTP or HTTPS RSS/Atom feed URLs.
 
 ## Inspiration
 

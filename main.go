@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-
-	"github.com/robfig/cron/v3"
 )
 
 func main() {
@@ -24,6 +22,7 @@ func main() {
 func run(ctx context.Context, argv []string) error {
 	fs := flag.NewFlagSet("simple-rss", flag.ContinueOnError)
 	configPath := fs.String("config", "config.json", "path to config file")
+	outputPath := fs.String("output", "index.html", "path to output HTML file")
 	if err := fs.Parse(argv); err != nil {
 		return err
 	}
@@ -36,51 +35,21 @@ func run(ctx context.Context, argv []string) error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ContextWithLogger(ctx, logger)
 
-	fetcher := new(Fetcher)
-
-	refresh := func() error {
-		feeds, err := fetcher.FetchAll(ctx, cfg.Feeds)
-		if err != nil {
-			logger.Error("fetching feeds failed", "error", err.Error())
-			// fallthrough as we probably still successfully fetched a
-			// subset of the feeds
-		}
-
-		if len(feeds) == 0 {
-			return err
-		}
-
-		if err := WriteHTML(cfg.OutputPath, feeds); err != nil {
-			return fmt.Errorf("writing html: %w", err)
-		}
-
-		logger.Info("refreshed feeds", "path", cfg.OutputPath)
-		return nil
+	feeds, fetchErr := new(Fetcher).FetchAll(ctx, cfg.Feeds)
+	if fetchErr != nil {
+		logger.Error("fetching feeds failed", "error", fetchErr.Error())
+		// fallthrough as we probably still successfully fetched a
+		// subset of the feeds
 	}
 
-	// TODO: if OutputPath does not exist, poll immediately
-	if !fileExists(cfg.OutputPath) {
-		if err := refresh(); err != nil {
-			logger.Error("refreshing feeds failed", "error", err)
-		}
+	if len(feeds) == 0 {
+		return fetchErr
 	}
 
-	scheduler := cron.New(cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)))
-	if _, err := scheduler.AddFunc(cfg.PollCron, func() {
-		if err := refresh(); err != nil {
-			logger.Error("refreshing feeds failed", "error", err)
-		}
-	}); err != nil {
-		return fmt.Errorf("schedule poll: %w", err)
+	if err := WriteHTML(*outputPath, feeds); err != nil {
+		return fmt.Errorf("writing html: %w", err)
 	}
-	scheduler.Start()
-	<-ctx.Done()
-	logger.Info("shutting down... waiting for running jobs to complete")
-	<-scheduler.Stop().Done()
+
+	logger.Info("wrote feeds", "path", *outputPath)
 	return nil
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }

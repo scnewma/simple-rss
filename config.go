@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -9,33 +8,20 @@ import (
 )
 
 type Config struct {
-	OutputPath string   `json:"output_path"`
-	PollCron   string   `json:"pollCron"`
-	Feeds      []string `json:"feeds"`
-}
-
-func DefaultConfig() Config {
-	cfg := Config{}
-	applyDefaults(&cfg)
-	return cfg
+	Feeds []string `json:"feeds"`
 }
 
 func LoadConfig(path string) (Config, error) {
-	cfg := DefaultConfig()
+	cfg := Config{}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return cfg, nil
-		}
 		return Config{}, fmt.Errorf("read config: %w", err)
 	}
 
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parse config: %w", err)
 	}
-
-	applyDefaults(&cfg)
 
 	if err := validateConfig(cfg); err != nil {
 		return Config{}, err
@@ -44,15 +30,7 @@ func LoadConfig(path string) (Config, error) {
 	return cfg, nil
 }
 
-func applyDefaults(cfg *Config) {
-	cfg.PollCron = cmp.Or(cfg.PollCron, "0 0 * * *")
-	cfg.OutputPath = cmp.Or(cfg.OutputPath, "index.html")
-}
-
 func validateConfig(cfg Config) error {
-	if cfg.PollCron == "" {
-		return fmt.Errorf("pollCron is required")
-	}
 	if len(cfg.Feeds) == 0 {
 		return fmt.Errorf("feeds must not be empty")
 	}

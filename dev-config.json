@@ -1,5 +1,4 @@
 {
-  "pollCron": "0 0 * * *",
   "feeds": [
     "https://matklad.github.io/feed.xml"
   ]
