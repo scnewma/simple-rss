@@ -9,11 +9,24 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
+type staticClock struct {
+	now time.Time
+}
+
+func (c staticClock) Now() time.Time {
+	return c.now
+}
+
 func TestApp(t *testing.T) {
+	originalClock := clock
+	clock = staticClock{now: time.Date(2026, 5, 13, 12, 0, 0, 0, time.UTC)}
+	t.Cleanup(func() { clock = originalClock })
+
 	feedPaths, err := filepath.Glob(filepath.Join("testdata", "*"))
 	if err != nil {
 		t.Fatal(err)
@@ -72,4 +85,11 @@ func TestApp(t *testing.T) {
 	if metas := doc.Find("section li .meta").Length(); metas == 0 {
 		t.Fatal("expected at least one article metadata element")
 	}
+
+	doc.Find("section").Each(func(i int, section *goquery.Selection) {
+		if articles := section.Find("li").Length(); articles == 0 {
+			group := strings.TrimSpace(section.Find("h2").First().Text())
+			t.Fatalf("expected group %d (%q) to be non-empty", i, group)
+		}
+	})
 }
