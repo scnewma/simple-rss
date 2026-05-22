@@ -5,52 +5,82 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
+	"os/signal"
 
 	"github.com/robfig/cron/v3"
-
-	"simple-rss/config"
-	"simple-rss/poller"
-	"simple-rss/storage"
-	"simple-rss/web"
 )
 
 func main() {
-	if err := run(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	if err := run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	configPath := flag.String("config", "config.json", "path to config file")
-	flag.Parse()
+func run(ctx context.Context, argv []string) error {
+	fs := flag.NewFlagSet("simple-rss", flag.ContinueOnError)
+	configPath := fs.String("config", "config.json", "path to config file")
+	if err := fs.Parse(argv); err != nil {
+		return err
+	}
 
-	cfg, err := config.Load(*configPath)
+	cfg, err := LoadConfig(*configPath)
 	if err != nil {
 		return err
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx = ContextWithLogger(ctx, logger)
 
-	store, err := storage.Open(cfg.DatabasePath)
-	if err != nil {
-		return err
+	fetcher := new(Fetcher)
+
+	refresh := func() error {
+		feeds, err := fetcher.FetchAll(ctx, cfg.Feeds)
+		if err != nil {
+			logger.Error("fetching feeds failed", "error", err.Error())
+			// fallthrough as we probably still successfully fetched a
+			// subset of the feeds
+		}
+
+		if len(feeds) == 0 {
+			return err
+		}
+
+		if err := WriteHTML(cfg.OutputPath, feeds); err != nil {
+			return fmt.Errorf("writing html: %w", err)
+		}
+
+		logger.Info("refreshed feeds", "path", cfg.OutputPath)
+		return nil
 	}
-	defer store.Close()
 
-	feedPoller := poller.New(cfg.Feeds, store, logger)
-	scheduler := cron.New(cron.WithSeconds())
+	// TODO: if OutputPath does not exist, poll immediately
+	if !fileExists(cfg.OutputPath) {
+		if err := refresh(); err != nil {
+			logger.Error("refreshing feeds failed", "error", err)
+		}
+	}
+
+	scheduler := cron.New(cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)))
 	if _, err := scheduler.AddFunc(cfg.PollCron, func() {
-		feedPoller.Poll(context.Background())
+		if err := refresh(); err != nil {
+			logger.Error("refreshing feeds failed", "error", err)
+		}
 	}); err != nil {
 		return fmt.Errorf("schedule poll: %w", err)
 	}
 	scheduler.Start()
-	defer scheduler.Stop()
+	<-ctx.Done()
+	logger.Info("shutting down... waiting for running jobs to complete")
+	<-scheduler.Stop().Done()
+	return nil
+}
 
-	logger.Info("starting server", "addr", cfg.ListenAddr)
-
-	return http.ListenAndServe(cfg.ListenAddr, web.Handler(store, cfg.DisplayDays, logger))
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

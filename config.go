@@ -1,6 +1,7 @@
-package config
+package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -8,21 +9,19 @@ import (
 )
 
 type Config struct {
-	PollCron     string   `json:"pollCron"`
-	DisplayDays  int      `json:"displayDays"`
-	ListenAddr   string   `json:"listenAddr"`
-	DatabasePath string   `json:"databasePath"`
-	Feeds        []string `json:"feeds"`
+	OutputPath string   `json:"output_path"`
+	PollCron   string   `json:"pollCron"`
+	Feeds      []string `json:"feeds"`
 }
 
-func Default() Config {
+func DefaultConfig() Config {
 	cfg := Config{}
 	applyDefaults(&cfg)
 	return cfg
 }
 
-func Load(path string) (Config, error) {
-	cfg := Default()
+func LoadConfig(path string) (Config, error) {
+	cfg := DefaultConfig()
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -38,7 +37,7 @@ func Load(path string) (Config, error) {
 
 	applyDefaults(&cfg)
 
-	if err := validate(cfg); err != nil {
+	if err := validateConfig(cfg); err != nil {
 		return Config{}, err
 	}
 
@@ -46,26 +45,13 @@ func Load(path string) (Config, error) {
 }
 
 func applyDefaults(cfg *Config) {
-	if cfg.PollCron == "" {
-		cfg.PollCron = "0 0 0 * * *"
-	}
-	if cfg.DisplayDays == 0 {
-		cfg.DisplayDays = 90
-	}
-	if cfg.ListenAddr == "" {
-		cfg.ListenAddr = ":8080"
-	}
-	if cfg.DatabasePath == "" {
-		cfg.DatabasePath = "simple-rss.db"
-	}
+	cfg.PollCron = cmp.Or(cfg.PollCron, "0 0 * * *")
+	cfg.OutputPath = cmp.Or(cfg.OutputPath, "index.html")
 }
 
-func validate(cfg Config) error {
+func validateConfig(cfg Config) error {
 	if cfg.PollCron == "" {
 		return fmt.Errorf("pollCron is required")
-	}
-	if cfg.DisplayDays <= 0 {
-		return fmt.Errorf("displayDays must be positive")
 	}
 	if len(cfg.Feeds) == 0 {
 		return fmt.Errorf("feeds must not be empty")
