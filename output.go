@@ -47,11 +47,11 @@ const pageHTML = `<!doctype html>
 </body>
 </html>`
 
-func WriteJSON(w io.Writer, feeds []*Feed) error {
+func WriteJSON(w io.Writer, feeds []*Feed, groups []GroupConfig) error {
 	data := struct {
 		Groups []group `json:"groups"`
 	}{
-		Groups: groupArticles(feeds),
+		Groups: groupArticles(feeds, groups),
 	}
 
 	encoder := json.NewEncoder(w)
@@ -59,7 +59,7 @@ func WriteJSON(w io.Writer, feeds []*Feed) error {
 	return encoder.Encode(data)
 }
 
-func WriteHTML(w io.Writer, feeds []*Feed) error {
+func WriteHTML(w io.Writer, feeds []*Feed, groups []GroupConfig) error {
 	t, err := template.New("index").Funcs(template.FuncMap{
 		"formatDate": func(t time.Time) string {
 			return t.Local().Format("Jan 2, 2006")
@@ -69,10 +69,10 @@ func WriteHTML(w io.Writer, feeds []*Feed) error {
 		return fmt.Errorf("parsing template: %w", err)
 	}
 
-	groups := groupArticles(feeds)
+	articleGroups := groupArticles(feeds, groups)
 
 	pageData := struct{ Groups []group }{
-		Groups: groups,
+		Groups: articleGroups,
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -102,36 +102,18 @@ type outputFeed struct {
 	URL   string `json:"url"`
 }
 
-func groupArticles(feeds []*Feed) []group {
+func groupArticles(feeds []*Feed, configs []GroupConfig) []group {
 	now := clock.Now()
 
-	// indexing assumes these are in increasing order
-	groups := []group{
-		{
-			Title: "Today",
+	groups := make([]group, 0, len(configs))
+	for _, cfg := range configs {
+		maxAge := cfg.MaxAge.Duration()
+		groups = append(groups, group{
+			Title: cfg.Title,
 			shouldAdd: func(publishedAt time.Time) bool {
-				p, n := publishedAt.Local(), now.Local()
-				return p.Year() == n.Year() && p.YearDay() == n.YearDay()
+				return maxAge == 0 || now.Sub(publishedAt) <= maxAge
 			},
-		},
-		{
-			Title: "Last 7 Days",
-			shouldAdd: func(publishedAt time.Time) bool {
-				return now.Sub(publishedAt) < 7*24*time.Hour
-			},
-		},
-		{
-			Title: "Last 30 Days",
-			shouldAdd: func(publishedAt time.Time) bool {
-				return now.Sub(publishedAt) < 30*24*time.Hour
-			},
-		},
-		{
-			Title: "Older",
-			shouldAdd: func(publishedAt time.Time) bool {
-				return true
-			},
-		},
+		})
 	}
 
 	hasArticles := false

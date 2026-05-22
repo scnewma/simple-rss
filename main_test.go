@@ -78,6 +78,25 @@ func TestAppJSON(t *testing.T) {
 	}
 }
 
+func TestAppCustomGroups(t *testing.T) {
+	configPath := testConfigPath(t, GroupConfig{Title: "This Week", MaxAge: Duration(7 * 24 * time.Hour)})
+
+	output := captureStdout(t, func() error {
+		return run(context.Background(), []string{"-config", configPath, "-format", "json"})
+	})
+
+	page := decodeJSONOutput(t, output)
+	if len(page.Groups) != 1 {
+		t.Fatalf("groups = %d, want 1", len(page.Groups))
+	}
+	if page.Groups[0].Title != "This Week" {
+		t.Fatalf("group title = %q, want This Week", page.Groups[0].Title)
+	}
+	if len(page.Groups[0].Articles) == 0 {
+		t.Fatal("expected custom group to include articles")
+	}
+}
+
 func TestAppMaxAge(t *testing.T) {
 	configPath := testConfigPath(t)
 	maxAge := 7 * 24 * time.Hour
@@ -113,7 +132,7 @@ func decodeJSONOutput(t *testing.T, output []byte) jsonOutput {
 	return page
 }
 
-func testConfigPath(t *testing.T) string {
+func testConfigPath(t *testing.T, groups ...GroupConfig) string {
 	t.Helper()
 
 	originalClock := clock
@@ -134,7 +153,7 @@ func testConfigPath(t *testing.T) string {
 	}
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
-	cfg := Config{Feeds: feedURLs}
+	cfg := Config{Feeds: feedURLs, Groups: groups}
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)

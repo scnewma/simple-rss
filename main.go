@@ -53,11 +53,11 @@ func run(ctx context.Context, argv []string) error {
 
 	switch *format {
 	case "html":
-		if err := WriteHTML(os.Stdout, feeds); err != nil {
+		if err := WriteHTML(os.Stdout, feeds, cfg.Groups); err != nil {
 			return fmt.Errorf("writing html: %w", err)
 		}
 	case "json":
-		if err := WriteJSON(os.Stdout, feeds); err != nil {
+		if err := WriteJSON(os.Stdout, feeds, cfg.Groups); err != nil {
 			return fmt.Errorf("writing json: %w", err)
 		}
 	default:

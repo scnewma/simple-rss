@@ -16,17 +16,27 @@ Flags:
 
 ## Configuration
 
-The config file only contains the feed list:
+The config file contains the feed list and optional article groups:
 
 ```json
 {
   "feeds": [
     "https://example.com/feed.xml"
+  ],
+  "groups": [
+    {
+      "title": "Today",
+      "maxAge": "24h"
+    },
+    {
+      "title": "This Week",
+      "maxAge": "168h"
+    }
   ]
 }
 ```
 
-Feeds must be HTTP or HTTPS RSS/Atom feed URLs.
+Feeds must be HTTP or HTTPS RSS/Atom feed URLs. If `groups` is omitted, the defaults are Today (`24h`), Last 7 Days (`168h`), Last 30 Days (`720h`), and Older (no max age).
 
 ## Inspiration
 
