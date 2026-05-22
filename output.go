@@ -84,7 +84,7 @@ type outputArticle struct {
 }
 
 func groupArticles(feeds []*Feed) []group {
-	now := time.Now()
+	now := clock.Now()
 
 	// indexing assumes these are in increasing order
 	groups := []group{

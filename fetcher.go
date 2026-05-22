@@ -36,8 +36,6 @@ func (e FeedError) Error() string {
 
 type Fetcher struct {
 	parser *gofeed.Parser
-
-	now func() time.Time
 }
 
 func (f *Fetcher) FetchAll(ctx context.Context, feedURLs []string) ([]*Feed, error) {
@@ -88,7 +86,7 @@ func (f *Fetcher) FetchOne(ctx context.Context, feedURL string) (*Feed, error) {
 		Title: strings.TrimSpace(fetched.Title),
 	}
 	for _, item := range fetched.Items {
-		publishedAt := f.now()
+		publishedAt := clock.Now()
 		if item.PublishedParsed != nil {
 			publishedAt = *item.PublishedParsed
 		}
@@ -103,9 +101,6 @@ func (f *Fetcher) FetchOne(ctx context.Context, feedURL string) (*Feed, error) {
 }
 
 func (f *Fetcher) init() {
-	if f.now == nil {
-		f.now = time.Now
-	}
 	if f.parser == nil {
 		f.parser = gofeed.NewParser()
 	}
@@ -119,7 +114,7 @@ type fetcherTelemetry struct {
 }
 
 func instrument(logger *slog.Logger) *fetcherTelemetry {
-	return &fetcherTelemetry{logger: logger, begin: time.Now()}
+	return &fetcherTelemetry{logger: logger, begin: clock.Now()}
 }
 
 func (t *fetcherTelemetry) Start(feedURL string) *span {
@@ -127,12 +122,12 @@ func (t *fetcherTelemetry) Start(feedURL string) *span {
 		telemetry: t,
 		logger:    t.logger,
 		feedURL:   feedURL,
-		begin:     time.Now(),
+		begin:     clock.Now(),
 	}
 }
 
 func (t *fetcherTelemetry) Close() {
-	elapsed := time.Now().Sub(t.begin)
+	elapsed := clock.Now().Sub(t.begin)
 	t.logger.Info("fetched feeds", "duration", elapsed, "feeds_attempted", t.nsuccess+t.nfailed, "feeds_failed", t.nfailed)
 }
 
@@ -156,5 +151,5 @@ func (s *span) Finish(feed *Feed) {
 }
 
 func (s *span) elapsed() time.Duration {
-	return time.Now().Sub(s.begin)
+	return clock.Now().Sub(s.begin)
 }
