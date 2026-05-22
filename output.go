@@ -162,6 +162,10 @@ func writeAtomic(path string, data []byte) (err error) {
 		_ = tmp.Close()
 		return err
 	}
+	if err = tmp.Chmod(0o666); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 	if err = tmp.Sync(); err != nil {
 		_ = tmp.Close()
 		return err
