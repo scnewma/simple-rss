@@ -87,19 +87,15 @@ func (f *Fetcher) FetchOne(ctx context.Context, feedURL string) (*Feed, error) {
 	}
 	for _, item := range fetched.Items {
 		title := strings.TrimSpace(item.Title)
-		if title == "" {
+		if title == "" || item.PublishedParsed == nil {
+			LoggerFromContext(ctx).Info("dropped item", "item", item)
 			continue
-		}
-
-		publishedAt := clock.Now()
-		if item.PublishedParsed != nil {
-			publishedAt = *item.PublishedParsed
 		}
 
 		feed.Articles = append(feed.Articles, Article{
 			Title:       title,
 			Link:        item.Link,
-			PublishedAt: publishedAt,
+			PublishedAt: *item.PublishedParsed,
 		})
 	}
 	return feed, nil
